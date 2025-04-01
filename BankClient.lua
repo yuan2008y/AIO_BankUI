@@ -6,48 +6,45 @@ if AIO.AddAddon() then
 end
 
 local BankSystemHandler = AIO.AddHandlers("BankSystem", {})
-
+-- 主背景界面UI
 local BankAddon = CreateFrame("Frame", "BankAddonFrame", UIParent)
--- BankAddon:SetSize(300, 300 * (250 / 300))
-BankAddon:SetSize(256, 512)
+BankAddon:SetSize(350, 450)
 BankAddon:SetPoint("CENTER")
--- BankAddon:SetBackdrop({
---     bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
---     edgeFile = "Interface\\PVPFrame\\UI-Character-PVP-Highlight",
---     edgeSize = 16,
---     insets = {
---         left = 8,
---         right = 6,
---         top = 8,
---         bottom = 8
---     }
--- })
-
--- (0.016655236, 0.9946494, 0.20685892, 0.7942723) texturecord 
--- "J:\wowStuff\Wotlk3.3.5Local\Data\patch-Z.MPQ\Interface\Upgrader\bg.blp"
-local bankAddonTexture = BankAddon:CreateTexture(nil, "BACKGROUND")
-bankAddonTexture:SetAllPoints(BankAddon)
-bankAddonTexture:SetTexture("Interface\\BankUI\\bg.blp")
-
-BankAddon:SetBackdropBorderColor(0, 0, 0)
-BankAddon:SetBackdropColor(0, 0, 0, 0.5)
+BankAddon:SetBackdrop({
+    bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+    edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+    tile = true,
+    tileSize = 32,
+    edgeSize = 32,
+    insets = { left = 11, right = 12, top = 12, bottom = 11 }
+})
+BankAddon:SetBackdropBorderColor(0.4, 0.4, 0.4)
+BankAddon:SetBackdropColor(0.5, 0.5, 0.5)
 BankAddon:Hide()
 
-BankAddon.title = BankAddon:CreateFontString(nil, "OVERLAY")
-BankAddon.title:SetFontObject("GameFontHighlight")
-BankAddon.title:SetPoint("TOP", BankAddon, "TOP", 0, -110)
-BankAddon.title:SetText("账号共享金币银行")
+-- 标题背景图UI
+BankAddon.titleBg = BankAddon:CreateTexture(nil, "ARTWORK")
+BankAddon.titleBg:SetTexture("Interface\\DialogFrame\\UI-DialogBox-Header")
+BankAddon.titleBg:SetSize(350, 64)
+BankAddon.titleBg:SetPoint("TOP", 0, 12)
 
-BankAddon.goldText = BankAddon:CreateFontString(nil, "OVERLAY")
-BankAddon.goldText:SetFontObject("GameFontHighlight")
-BankAddon.goldText:SetPoint("TOP", BankAddon.title, "BOTTOM", 0, -25)
-BankAddon.goldText:SetText("Gold in bank: 0")
--- Close button handle reset the loading bar and enable the action button
+--标题文本
+BankAddon.title = BankAddon:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
+BankAddon.title:SetPoint("TOP", BankAddon.titleBg, "TOP", 0, -14)
+BankAddon.title:SetText("账号金币银行")
+BankAddon.title:SetTextColor(1, 0.82, 0)
+
+-- 金币余额显示
+BankAddon.goldText = BankAddon:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
+BankAddon.goldText:SetPoint("TOP", BankAddon.title, "BOTTOM", 0, -30)
+BankAddon.goldText:SetText("余额: 0 金")
+BankAddon.goldText:SetTextColor(1, 1, 0)
+
+-- 关闭按钮
 BankAddon.closeButton = CreateFrame("Button", nil, BankAddon, "UIPanelCloseButton")
-BankAddon.closeButton:SetPoint("TOPRIGHT", BankAddon, "TOPRIGHT", -5, -108)
-BankAddon.closeButton:SetNormalTexture("Interface\\BankUI\\closeNormal")
-BankAddon.closeButton:SetHighlightTexture("Interface\\BankUI\\closeHover")
-BankAddon.closeButton:SetSize(16, 16)
+BankAddon.closeButton:SetPoint("TOPRIGHT", BankAddon, "TOPRIGHT", -8, -8)
+BankAddon.closeButton:SetSize(32, 32)
+
 BankAddon.closeButton:SetScript("OnClick", function()
     BankAddon.loadingBar:SetScript("OnUpdate", nil)
     BankAddon.loadingBar:Reset()
@@ -55,133 +52,72 @@ BankAddon.closeButton:SetScript("OnClick", function()
     BankAddon:Hide()
 end)
 
-local function CreateInputBox(name, parent, width, height, point, relativeTo, relativePoint, xOffset, yOffset)
-    local inputBox = CreateFrame("EditBox", name, parent, "InputBoxTemplate")
-    inputBox:SetSize(width, height)
-
-    inputBox:SetPoint(point, relativeTo, relativePoint, xOffset, yOffset)
-    inputBox:SetAutoFocus(false)
-    inputBox:SetNumeric(true)
-    return inputBox
-end
-
-local function CreateButton(name, parent, width, height, point, relativeTo, relativePoint, xOffset, yOffset, text,
-    onClick)
-    local button = CreateFrame("Button", name, parent, "GameMenuButtonTemplate")
-    button:SetSize(width, height)
-    button:SetPoint(point, relativeTo, relativePoint, xOffset, yOffset)
-    button:SetText(text)
-    button:SetNormalFontObject("GameFontNormalLarge")
-    button:SetHighlightFontObject("GameFontHighlightLarge")
-    button:SetScript("OnClick", onClick)
-    return button
-end
-
-local function CreateDropdown(name, parent, width, height, point, relativeTo, relativePoint, xOffset, yOffset, items,
-    onSelect)
-    local dropdown = CreateFrame("Frame", name, parent, "UIDropDownMenuTemplate")
-    dropdown:SetPoint(point, relativeTo, relativePoint, xOffset, yOffset)
-    UIDropDownMenu_SetWidth(dropdown, width)
-    UIDropDownMenu_Initialize(dropdown, function(self, level, menuList)
-        for _, item in ipairs(items) do
-            local info = UIDropDownMenu_CreateInfo()
-            info.text = item
-            info.func = function()
-                UIDropDownMenu_SetSelectedName(dropdown, item)
-                onSelect(item)
-                -- Clear the checked state for all items
-                for _, i in ipairs(items) do
-                    if i == item then
-                        info.checked = true
-                    else
-                        info.checked = false
-                    end
-                end
-                -- Refresh the dropdown menu to update the checked state
-                UIDropDownMenu_Refresh(dropdown)
-            end
-            info.checked = (UIDropDownMenu_GetSelectedName(dropdown) == item)
-            UIDropDownMenu_AddButton(info)
-        end
-    end)
-
-    return dropdown
-end
-
+-- 存取下拉菜单，默认存放
 local action = "存放"
-BankAddon.actionDropdown = CreateDropdown("DepWith", BankAddon, 140, 40, "TOP", BankAddon.goldText, "BOTTOM", 0, -10,
-  {"存放", "取出"}, function(selected)
-        action = selected
-    end)
-
--- Set the default value explicitly to "存放" since the dropdown menu doesn't have a default value
-UIDropDownMenu_SetSelectedName(BankAddon.actionDropdown, "存放")
-BankAddon.amountBox = CreateInputBox(nil, BankAddon, 140, 40, "TOP", BankAddon.actionDropdown, "BOTTOM", 0, -10)
--- Function to update the loading bar progress
-local function updateLoadingBar(progress)
-    local maxWidth = BankAddon.loadingBar:GetWidth() - 8
-    local newWidth = maxWidth * progress
-    BankAddon.loadingBar:SetProgress(progress)
-    local percentage = math.floor(progress * 100)
-    BankAddon.loadingBar.percentage:SetText(percentage .. "%")
-
-    if progress > 0 and progress < 1 then
-        BankAddon.loadingBar.spark:SetPoint("LEFT", BankAddon.loadingBar.texture, "RIGHT", -10, 0)
-        BankAddon.loadingBar.spark:Show()
-    else
-        BankAddon.loadingBar.spark:Hide()
+BankAddon.actionDropdown = CreateFrame("Frame", "DepWith", BankAddon, "UIDropDownMenuTemplate")
+BankAddon.actionDropdown:SetPoint("TOP", BankAddon.goldText, "BOTTOM", 0, -30)
+UIDropDownMenu_SetWidth(BankAddon.actionDropdown, 150)
+UIDropDownMenu_Initialize(BankAddon.actionDropdown, function(self, level, menuList)
+    local info = UIDropDownMenu_CreateInfo()
+    info.func = function(self) 
+        action = self.value 
+        UIDropDownMenu_SetSelectedValue(BankAddon.actionDropdown, self.value)
     end
-end
+    
+    info.text, info.value = "存放", "存放"
+    info.checked = action == "存放"
+    UIDropDownMenu_AddButton(info)
+    
+    info.text, info.value = "取出", "取出"
+    info.checked = action == "取出"
+    UIDropDownMenu_AddButton(info)
+end)
+UIDropDownMenu_SetSelectedValue(BankAddon.actionDropdown, "存放")
 
--- Function to handle the loading process
-local function applyLoadingProcess(duration, callback)
-    local startTime = GetTime()
-    local function onUpdate()
-        local currentTime = GetTime()
-        local elapsed = currentTime - startTime
-        local progress = elapsed / duration
-        updateLoadingBar(progress)
-        if progress >= 1 then
-            BankAddon.loadingBar:SetScript("OnUpdate", nil)
-            BankAddon.loadingBar.spark:Hide() -- Hide the spark when loading is complete
-            callback()
-        end
-    end
-    BankAddon.loadingBar:SetScript("OnUpdate", onUpdate)
-end
+-- 数量输入框
+BankAddon.amountBox = CreateFrame("EditBox", nil, BankAddon, "InputBoxTemplate")
+BankAddon.amountBox:SetSize(150, 32)
+BankAddon.amountBox:SetPoint("TOP", BankAddon.actionDropdown, "BOTTOM", 0, -20)
+BankAddon.amountBox:SetAutoFocus(false)
+BankAddon.amountBox:SetNumeric(true)
+BankAddon.amountBox:SetMaxLetters(10)
+BankAddon.amountBox:SetTextInsets(5, 5, 0, 0)
 
--- Create the loading bar frame and texture
+-- 数量输入框后面的金币图标
+BankAddon.goldIcon = BankAddon.amountBox:CreateTexture(nil, "OVERLAY")
+BankAddon.goldIcon:SetTexture("Interface\\MoneyFrame\\UI-MoneyIcons")
+BankAddon.goldIcon:SetTexCoord(0, 0.25, 0, 1)
+BankAddon.goldIcon:SetSize(16, 16)
+BankAddon.goldIcon:SetPoint("LEFT", BankAddon.amountBox, "RIGHT", 5, 0)
+
+-- 进度条
 local function CreateLoadingBar(parent)
     local loadingBarFrame = CreateFrame("Frame", "LoadingBarFrame", parent)
-    loadingBarFrame:SetSize(200, 20) -- Adjust size as needed
-    loadingBarFrame:SetPoint("CENTER", parent, "CENTER", 0, -100)
+    loadingBarFrame:SetSize(200, 20)  -- 调整大小
+    loadingBarFrame:SetPoint("TOP", parent.amountBox, "BOTTOM", 0, -30)
     loadingBarFrame:SetBackdrop({
         bgFile = "Interface/Tooltips/UI-Tooltip-Background",
         edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
         tile = true,
         tileSize = 16,
         edgeSize = 16,
-        insets = {
-            left = 4,
-            right = 4,
-            top = 4,
-            bottom = 4
-        }
+        insets = { left = 4, right = 4, top = 4, bottom = 4 }
     })
-    loadingBarFrame:SetBackdropColor(0.1, 0.1, 0.1, 0.9)
+    loadingBarFrame:SetBackdropColor(0.1, 0.1, 0.1, 0.9)  -- 背景颜色
 
+    -- 创建进度条前景
     local loadingBarTexture = loadingBarFrame:CreateTexture(nil, "OVERLAY")
-    -- loadingBarTexture:SetTexture("Interface\\Buttons\\GREENGRAD64") -- Set the texture to a green gradient
-    loadingBarTexture:SetTexture("Interface\\Buttons\\BLUEGRAD64") -- Set the texture to a blue gradient
+    loadingBarTexture:SetTexture("Interface\\Buttons\\BLUEGRAD64")  -- 使用蓝色渐变材质
     loadingBarTexture:SetPoint("LEFT", loadingBarFrame, "LEFT", 4, 0)
-    loadingBarTexture:SetSize(0, 10) -- Initial size is 0
-    -- If you don't have a blue gradient texture, you can set the color of the existing texture to blue
-    -- loadingBarTexture:SetColorTexture(0, 0, 1, 1) -- Set to blue color
+    loadingBarTexture:SetSize(0, 10)  -- 初始宽度为0
+    loadingBarTexture:SetTexCoord(0, 0, 0, 1)  -- 确保纹理从最左侧开始
 
+    -- 百分比文字
     local loadingBarPercentage = loadingBarFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     loadingBarPercentage:SetPoint("CENTER", loadingBarFrame, "CENTER", 0, 0)
     loadingBarPercentage:SetText("0%")
 
+    -- 火花效果
     local loadingBarSpark = loadingBarFrame:CreateTexture(nil, "OVERLAY")
     loadingBarSpark:SetTexture("Interface\\CastingBar\\UI-CastingBar-Spark")
     loadingBarSpark:SetBlendMode("ADD")
@@ -189,21 +125,28 @@ local function CreateLoadingBar(parent)
     loadingBarSpark:SetHeight(loadingBarFrame:GetHeight() * 2)
     loadingBarSpark:SetPoint("LEFT", loadingBarTexture, "RIGHT", -10, 0)
 
+    -- 设置进度
     function loadingBarFrame:SetProgress(progress)
         local width = (loadingBarFrame:GetWidth() - 8) * progress
         loadingBarTexture:SetWidth(width)
         loadingBarPercentage:SetText(math.floor(progress * 100) .. "%")
         loadingBarSpark:SetPoint("LEFT", loadingBarTexture, "RIGHT", -10, 0)
+        if progress > 0 and progress < 1 then
+            loadingBarSpark:Show()
+        else
+            loadingBarSpark:Hide()
+        end
     end
 
+    -- 重置进度条
     function loadingBarFrame:Reset()
-        loadingBarTexture:SetWidth(-1)
+        loadingBarTexture:SetWidth(-1)  
+        loadingBarTexture:SetTexCoord(0, 0, 0, 1)  -- 重置纹理坐标
         loadingBarPercentage:SetText("0%")
-        loadingBarSpark:SetPoint("LEFT", loadingBarTexture, "RIGHT", -10, 0)
-        loadingBarSpark:Hide() -- Hide the spark when resetting the loading bar
+        loadingBarSpark:Hide()
     end
 
-    -- Assign the created elements to the loadingBarFrame object
+    -- 将元素赋值给loadingBarFrame对象
     loadingBarFrame.texture = loadingBarTexture
     loadingBarFrame.percentage = loadingBarPercentage
     loadingBarFrame.spark = loadingBarSpark
@@ -211,48 +154,61 @@ local function CreateLoadingBar(parent)
     return loadingBarFrame
 end
 
--- Create the loading bar for BankAddon
-BankAddon.loadingBar = CreateLoadingBar(BankAddon)
-BankAddon.loadingBar:Show()
 
-BankAddon.actionButton = CreateButton(nil, BankAddon, 140, 30, "TOP", BankAddon.amountBox, "BOTTOM", 0, -10, "提交",
-    function()
-        local amount = BankAddon.amountBox:GetNumber()
-        if amount > 0 then
-            BankAddon.actionButton:Disable()
-            BankAddon.loadingBar:Reset()
-            -- BankAddon.amountBox:SetText("") 
-            BankAddon.amountBox:ClearFocus()
-            applyLoadingProcess(3, function()
+BankAddon.loadingBar = CreateLoadingBar(BankAddon)
+
+--提交按钮
+BankAddon.actionButton = CreateFrame("Button", nil, BankAddon, "UIPanelButtonTemplate")
+BankAddon.actionButton:SetSize(150, 30)
+BankAddon.actionButton:SetPoint("TOP", BankAddon.loadingBar, "BOTTOM", 0, -20)
+BankAddon.actionButton:SetText("提交")
+BankAddon.actionButton:SetNormalFontObject("GameFontNormalLarge")
+BankAddon.actionButton:SetHighlightFontObject("GameFontHighlightLarge")
+
+BankAddon.actionButton:SetScript("OnClick", function()
+    local amount = BankAddon.amountBox:GetNumber()
+    if amount > 0 then
+        BankAddon.actionButton:Disable()
+        BankAddon.loadingBar:Reset()
+        BankAddon.amountBox:ClearFocus()
+        
+        local duration = 2
+        local startTime = GetTime()
+        BankAddon.loadingBar:SetScript("OnUpdate", function()
+            local progress = (GetTime() - startTime) / duration
+            if progress >= 1 then
+                progress = 1
+                BankAddon.loadingBar:SetScript("OnUpdate", nil)
                 BankAddon.actionButton:Enable()
-                -- BankAddon.amountBox:SetText("") 
-                BankAddon.amountBox:ClearFocus()
                 if action == "存放" then
                     AIO.Handle("BankSystem", "DepositGold", amount)
                 elseif action == "取出" then
                     AIO.Handle("BankSystem", "WithdrawGold", amount)
                 end
-            end)
-        else
-            print("请出入有效的金币数.")
-        end
-    end)
+            end
+            BankAddon.loadingBar:SetProgress(progress)
+        end)
+    else
+        UIErrorsFrame:AddMessage("请输入有效的金币数", 1.0, 0.1, 0.1, 1.0)
+    end
+end)
 
--- Function to update the displayed gold amount in the bank
+--更新余额金额
 function BankAddon:UpdateGold(amount)
-    BankAddon.goldText:SetText("余额: " .. amount.."金")
+    BankAddon.goldText:SetText("余额: " .. amount .. " 金")
 end
 
--- Define the slash command
-SLASH_BANK1 = "/bank"
 
+
+-- 注册呼出界面命令
+SLASH_BANK1 = "/bank"
 SlashCmdList["BANK"] = function()
     AIO.Handle("BankSystem", "RequestGoldAmount")
     BankAddon:Show()
     BankAddon.loadingBar:Reset()
 end
 
--- Register a handler to update the gold amount
+-- 注册更新金币数量
 function BankSystemHandler.UpdateGoldAmount(player, amount)
     BankAddon:UpdateGold(amount)
 end
