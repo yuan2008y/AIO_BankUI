@@ -6,70 +6,65 @@ local config = {
     debug = true
 }
 
--- Function to display debug messages
+-- 服务器控制台输出dubug信息
+
 local function debugMessage(...)
     if config.debug then
         print("DEBUG:", ...)
     end
 end
 
--- Cache table for storing gold amounts reduce database queries hopefully
-local goldCache = {}
-
+--存钱
 function BankSystemHandler.DepositGold(player, amount)
     local accountId = player:GetAccountId()
-    local playerGold = player:GetCoinage() / 10000 -- Convert copper to gold will just do gold
+    local playerGold = player:GetCoinage() / 10000 -- 将铜币转换为金币
+	
+	
+    -- 直接从数据库查询余额
+    local query = string.format("SELECT gold_amount FROM account_bank WHERE account_id = %d", accountId)
+    local result = AuthDBQuery(query)
+    local goldAmount = result and result:GetInt32(0) or 0
+    -- 检查存款后是否会超过上限
+    if goldAmount + amount > 2147483647 then
+        player:SendBroadcastMessage("存款失败：存款后余额将超过上限21亿。")
+        return
+    end
+	
 
-    -- print("Debug: Player gold: " .. tostring(playerGold))
-    -- print("Debug: Amount to deposit: " .. tostring(amount))
-
-    if playerGold >= amount then
-        print("Debug: Depositing gold.")
+    if playerGold >= amount then--判断玩家身上的钱大于输入的存款数值
+	
         local query = string.format(
-            "INSERT INTO x_auth.account_bank (account_id, gold_amount) VALUES (%d, %d) ON DUPLICATE KEY UPDATE gold_amount = gold_amount + %d",
+            "INSERT INTO account_bank (account_id, gold_amount) VALUES (%d, %d) ON DUPLICATE KEY UPDATE gold_amount = gold_amount + %d",
             accountId, amount, amount)
         AuthDBExecute(query)
         player:ModifyMoney(-amount * 10000)
         player:SendBroadcastMessage("你存储了 " .. amount .. " 金到你的金币银行.")
 
-        -- Update the cache
-        goldCache[accountId] = (goldCache[accountId] or 0) + amount
-
+        -- 直接查询数据库并发送最新余额
         BankSystemHandler.SendGoldAmount(player)
-    else
-        print("Debug: Not enough gold to deposit.")
+    else--玩家输入了大于身上金币数值的情况
         player:SendBroadcastMessage("别捣乱，我的朋友，你的钱不够.")
     end
 end
 
+--取钱
 function BankSystemHandler.WithdrawGold(player, amount)
     local accountId = player:GetAccountId()
-    local goldAmount = goldCache[accountId]
-	local totalCopper = player:GetCoinage()--读取玩家现有铜币数量
+    local totalCopper = player:GetCoinage() -- 读取玩家现有铜币数量
 
-    if goldAmount == nil then  --判断金币银行是否为空
-        local query = string.format("SELECT gold_amount FROM x_auth.account_bank WHERE account_id = %d", accountId)
-        local result = AuthDBQuery(query)
-        if result then
-            goldAmount = result:GetInt32(0)
-            goldCache[accountId] = goldAmount
-        else
-            player:SendBroadcastMessage("你还没有金币银行余额.")
-            return
-        end
-    end
+    -- 直接从数据库查询余额
+    local query = string.format("SELECT gold_amount FROM account_bank WHERE account_id = %d", accountId)
+    local result = AuthDBQuery(query)
+    local goldAmount = result and result:GetInt32(0) or 0
 
-   if goldAmount >= amount and (amount * 10000+totalCopper) <=2147483647     then  --判断金币银行金额大于输入的金额
-
+    if goldAmount >= amount and (amount * 10000 + totalCopper) <= 2147483647 then
         local updateQuery = string.format(
-            "UPDATE x_auth.account_bank SET gold_amount = gold_amount - %d WHERE account_id = %d", amount, accountId)
+            "UPDATE account_bank SET gold_amount = gold_amount - %d WHERE account_id = %d", amount, accountId)
         AuthDBExecute(updateQuery)
         player:ModifyMoney(amount * 10000)
         player:SendBroadcastMessage("你从金币银行取了 " .. amount .. " 金.")
 
-        -- Update the cache
-        goldCache[accountId] = goldAmount - amount
-
+        -- 直接查询数据库并发送最新余额
         BankSystemHandler.SendGoldAmount(player)
     else
         player:SendBroadcastMessage("限额导致失败，余额不足或背包上限了，请降低取现金额.")
@@ -78,19 +73,11 @@ end
 
 function BankSystemHandler.SendGoldAmount(player)
     local accountId = player:GetAccountId()
-    local goldAmount = goldCache[accountId]
 
-    if goldAmount == nil then
-        local query = string.format("SELECT gold_amount FROM x_auth.account_bank WHERE account_id = %d", accountId)
-        local result = AuthDBQuery(query)
-        if result then
-            goldAmount = result:GetInt32(0)
-            goldCache[accountId] = goldAmount
-        else
-            goldAmount = 0
-            goldCache[accountId] = goldAmount
-        end
-    end
+    -- 直接从数据库查询余额
+    local query = string.format("SELECT gold_amount FROM account_bank WHERE account_id = %d", accountId)
+    local result = AuthDBQuery(query)
+    local goldAmount = result and result:GetInt32(0) or 0
 
     AIO.Msg():Add("BankSystem", "UpdateGoldAmount", goldAmount):Send(player)
 end
@@ -98,14 +85,3 @@ end
 function BankSystemHandler.RequestGoldAmount(player)
     BankSystemHandler.SendGoldAmount(player)
 end
-
--- 下面可以忽略是创建表单
-
--- CREATE TABLE `account_bank` (
--- 	`account_id` INT(10) UNSIGNED NOT NULL,
--- 	`gold_amount` BIGINT(20) UNSIGNED NOT NULL DEFAULT '0',
--- 	PRIMARY KEY (`account_id`) USING BTREE
--- )
--- COLLATE='utf8mb4_unicode_ci'
--- ENGINE=InnoDB
--- ;
