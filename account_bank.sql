@@ -26,10 +26,3 @@ CREATE TABLE `account_bank`  (
   `gold_amount` int(11) NULL DEFAULT NULL,
   PRIMARY KEY (`account_id`) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = latin1 COLLATE = latin1_swedish_ci ROW_FORMAT = Dynamic;
-
--- ----------------------------
--- Records of account_bank
--- ----------------------------
-INSERT INTO `account_bank` VALUES (231, 1);
-
-SET FOREIGN_KEY_CHECKS = 1;
