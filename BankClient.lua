@@ -28,10 +28,10 @@ BankAddon.titleBg:SetTexture("Interface\\DialogFrame\\UI-DialogBox-Header")
 BankAddon.titleBg:SetSize(350, 64)
 BankAddon.titleBg:SetPoint("TOP", 0, 12)
 
---标题文本
+-- 标题文本
 BankAddon.title = BankAddon:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
 BankAddon.title:SetPoint("TOP", BankAddon.titleBg, "TOP", 0, -14)
-BankAddon.title:SetText("账号金币银行")
+BankAddon.title:SetText("帐号金币银行")
 BankAddon.title:SetTextColor(1, 0.82, 0)
 
 -- 金币余额显示
@@ -59,15 +59,15 @@ BankAddon.actionDropdown:SetPoint("TOP", BankAddon.goldText, "BOTTOM", 0, -30)
 UIDropDownMenu_SetWidth(BankAddon.actionDropdown, 150)
 UIDropDownMenu_Initialize(BankAddon.actionDropdown, function(self, level, menuList)
     local info = UIDropDownMenu_CreateInfo()
-    info.func = function(self) 
-        action = self.value 
+    info.func = function(self)
+        action = self.value
         UIDropDownMenu_SetSelectedValue(BankAddon.actionDropdown, self.value)
     end
-    
+
     info.text, info.value = "存放", "存放"
     info.checked = action == "存放"
     UIDropDownMenu_AddButton(info)
-    
+
     info.text, info.value = "取出", "取出"
     info.checked = action == "取出"
     UIDropDownMenu_AddButton(info)
@@ -140,7 +140,7 @@ local function CreateLoadingBar(parent)
 
     -- 重置进度条
     function loadingBarFrame:Reset()
-        loadingBarTexture:SetWidth(-1)  
+        loadingBarTexture:SetWidth(-1)
         loadingBarTexture:SetTexCoord(0, 0, 0, 1)  -- 重置纹理坐标
         loadingBarPercentage:SetText("0%")
         loadingBarSpark:Hide()
@@ -154,10 +154,9 @@ local function CreateLoadingBar(parent)
     return loadingBarFrame
 end
 
-
 BankAddon.loadingBar = CreateLoadingBar(BankAddon)
 
---提交按钮
+-- 提交按钮
 BankAddon.actionButton = CreateFrame("Button", nil, BankAddon, "UIPanelButtonTemplate")
 BankAddon.actionButton:SetSize(150, 30)
 BankAddon.actionButton:SetPoint("TOP", BankAddon.loadingBar, "BOTTOM", 0, -20)
@@ -171,7 +170,7 @@ BankAddon.actionButton:SetScript("OnClick", function()
         BankAddon.actionButton:Disable()
         BankAddon.loadingBar:Reset()
         BankAddon.amountBox:ClearFocus()
-        
+
         local duration = 2
         local startTime = GetTime()
         BankAddon.loadingBar:SetScript("OnUpdate", function()
@@ -193,12 +192,13 @@ BankAddon.actionButton:SetScript("OnClick", function()
     end
 end)
 
---更新余额金额
+-- 更新余额金额
 function BankAddon:UpdateGold(amount)
+    print("Updating gold amount: " .. amount)  -- 调试信息
+
     BankAddon.goldText:SetText("余额: " .. amount .. " 金")
+	
 end
-
-
 
 -- 注册呼出界面命令
 SLASH_BANK1 = "/bank"
@@ -210,5 +210,49 @@ end
 
 -- 注册更新金币数量
 function BankSystemHandler.UpdateGoldAmount(player, amount)
+    print("Received update gold amount message: " .. amount)  -- 调试信息
     BankAddon:UpdateGold(amount)
 end
+-----------------------------------------以下为注册迷你地图图标代码-----------------------------------
+-- 创建迷你地图按钮
+local minimapButton = CreateFrame("Button", "BankMinimapButton", Minimap)
+minimapButton:SetSize(32, 32)  -- 按钮大小
+minimapButton:SetFrameStrata("MEDIUM")
+minimapButton:SetPoint("TOPLEFT", Minimap, "TOPLEFT", 10, -10)  -- 初始位置
+
+-- 设置按钮图标（金币样式）
+minimapButton.icon = minimapButton:CreateTexture(nil, "BACKGROUND")
+minimapButton.icon:SetTexture("Interface\\MoneyFrame\\UI-MoneyIcons")  -- 魔兽内置金币图标
+minimapButton.icon:SetTexCoord(0, 0.25, 0, 1)  -- 截取金币部分
+minimapButton.icon:SetAllPoints()  -- 填充整个按钮
+
+-- 悬停高亮效果
+minimapButton:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
+
+-- 点击事件：打开银行UI（和/bank命令相同）
+minimapButton:SetScript("OnClick", function()
+    AIO.Handle("BankSystem", "RequestGoldAmount")  -- 请求最新余额
+    BankAddon:Show()  -- 显示银行窗口
+    BankAddon.loadingBar:Reset()
+end)
+
+-- 悬停提示
+minimapButton:SetScript("OnEnter", function()
+    GameTooltip:SetOwner(minimapButton, "ANCHOR_LEFT")
+    GameTooltip:SetText("账号金币银行", 1, 1, 1)
+    GameTooltip:AddLine("点击打开银行界面", 0.6, 0.8, 1, true)
+    GameTooltip:Show()
+end)
+minimapButton:SetScript("OnLeave", function()
+    GameTooltip:Hide()
+end)
+
+-- 允许拖动调整位置
+minimapButton:SetMovable(true)
+minimapButton:RegisterForDrag("LeftButton")
+minimapButton:SetScript("OnDragStart", function()
+    minimapButton:StartMoving()
+end)
+minimapButton:SetScript("OnDragStop", function()
+    minimapButton:StopMovingOrSizing()
+end)
